@@ -27,6 +27,6 @@ add_executable(main main.cpp)
 add_executable(example io/example.cpp)
 add_executable(opencv opencv.cpp)
 
-target_link_libraries(main ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io auto_aim)
+target_link_libraries(main ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io tasks)
 target_link_libraries(example ${OpenCV_LIBS} io)
-target_link_libraries(opencv ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io auto_aim)
+target_link_libraries(opencv ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io tasks)

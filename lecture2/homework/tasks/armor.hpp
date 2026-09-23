@@ -3,7 +3,7 @@
  * struct Armor
  * {
  *   Color color;    // 灯条颜色
- *   std::vector<cv::Point2f> points;  // 关键点的图像坐标，顺序为左上、左下、右下、右上
+ *   std::vector<cv::Point2f> points;  // 关键点的图像坐标，顺序为左上、右上、右下、左下
  *   ArmorType type;   // 装甲板尺寸分类（大/小）
  *   ArmorName name;   // 装甲板图案（1/2/3/哨兵）
  * };

@@ -5,7 +5,7 @@ yolov5_model_path: assets/yolov5.xml
 device: CPU
 min_confidence: 0.8
 use_traditional: true
-roi: 
+roi:
   x: 420
   y: 50
   width: 600
@@ -13,3 +13,19 @@ roi:
 
 use_roi: false
 threshold: 150
+
+# AprilTag配置
+
+# 检测参数
+auto_charge:
+  # AprilTag配置
+  tag_family: "tag36h11"
+  tag_size: 0.080  # m
+  tag_ids: [10, 18, 24]
+  corner_refinement_method: 1  # CORNER_REFINE_SUBPIX
+  min_marker_perimeter_rate: 0.03
+  adaptive_thresh_win_size_min: 3
+  adaptive_thresh_win_size_max: 23
+  adaptive_thresh_win_size_step: 10
+  adaptive_thresh_constant: 7.0
+  
