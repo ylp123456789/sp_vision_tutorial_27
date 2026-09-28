@@ -30,3 +30,6 @@ add_executable(opencv opencv.cpp)
 target_link_libraries(main ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io tasks)
 target_link_libraries(example ${OpenCV_LIBS} io)
 target_link_libraries(opencv ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io tasks)
+
+add_executable(extra extra_homework.cpp)
+target_link_libraries(extra ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io tasks)

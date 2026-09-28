@@ -1,0 +1,10 @@
+auto_charge:
+  tag_family: "tag36h11"
+  tag_ids: [10, 18, 24]
+  tag_size: 0.080
+  adaptive_thresh_win_size_min: 3
+  adaptive_thresh_win_size_max: 23
+  adaptive_thresh_win_size_step: 10
+  adaptive_thresh_constant: 7.0
+  min_marker_perimeter_rate: 0.03
+  corner_refinement_method: 1

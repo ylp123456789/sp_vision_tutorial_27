@@ -15,5 +15,5 @@ add_executable(opencv_ex2 ex2/example2.cpp)
 target_link_libraries(opencv_ex2 ${OpenCV_LIBS})
 
 # 作业：TODO 由你自己完成
-add_executable(opencv_homework homework/homework.cpp)
-target_link_libraries(opencv_homework ${OpenCV_LIBS})
+add_executable(homework homework/homework.cpp)
+target_link_libraries(homework ${OpenCV_LIBS})
