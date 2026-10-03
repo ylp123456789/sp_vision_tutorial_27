@@ -37,7 +37,7 @@ Pipeline::Pipeline(std::unique_ptr<FrameSource> source, PipelineConfig config)
 
 Pipeline::~Pipeline()
 {
-    // TODO: Make sure Pipeline never destroys running threads.
+    wait();// TODO: Make sure Pipeline never destroys running threads.
 }
 
 void Pipeline::start()
@@ -82,7 +82,7 @@ void Pipeline::producerLoop()
         logLine(std::cout, "[Producer] frame " + std::to_string(frame.id));
 
         // What's the best way to write this?
-        queue_.push(frame);
+        queue_.push(std::move(frame));
     }
     queue_.close();
 }

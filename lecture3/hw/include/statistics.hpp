@@ -1,4 +1,5 @@
 #pragma once
+#include <mutex>
 
 struct StatisticsSnapshot
 {
@@ -23,4 +24,5 @@ private:
     int processed_ = 0;
     int saved_ = 0;
     int corrupted_ = 0;
+    mutable std::mutex mutex_;
 };

@@ -39,6 +39,16 @@ static const double ARMOR_WIDTH = 0.135;     // 装甲板宽度  单位：米
 //   ⚠ Armor::points 的真实顺序就是上面这个，不是 tasks/armor.hpp 注释里写的那个。
 // #########################################################
 
+
+
+static const std::vector<cv::Point3f> object_points {
+    {-ARMOR_WIDTH / 2,  LIGHTBAR_LENGTH / 2, 0 },  // 左上
+    { ARMOR_WIDTH / 2,  LIGHTBAR_LENGTH / 2, 0 },  // 右上
+    { ARMOR_WIDTH / 2, -LIGHTBAR_LENGTH / 2, 0 },  // 右下
+    {-ARMOR_WIDTH / 2, -LIGHTBAR_LENGTH / 2, 0 }   // 左下
+};
+
+
 int main(int argc, char *argv[])
 {
     auto_aim::YOLO detector("configs/yolo.yaml");
@@ -77,10 +87,26 @@ int main(int argc, char *argv[])
             // - 顺序必须与 Task01 的 object_points 一一对应：左上、右上、右下、左下。
             // #########################################################
 
+<<<<<<< Updated upstream
+=======
+            std::vector<cv::Point2f> img_points{
+                armor.points[0],
+                armor.points[1],
+                armor.points[2],
+                armor.points[3]
+            };
+
+>>>>>>> Stashed changes
 
 
             // #### Task 03 ############################################
             cv::Mat rvec, tvec;
+<<<<<<< Updated upstream
+=======
+
+            cv::Mat rvec, tvec;
+            cv::solvePnP(object_points, img_points, camera_matrix, distort_coeffs, rvec, tvec);
+>>>>>>> Stashed changes
             // 所有要传入的值都已经具备了。现在调用 solvePnP 解算装甲板位姿，
             // rvec 和 tvec 用于存储 solvePnP 输出的结果。
             // 你需要在下面填写 输入给 solvePnP 的参数：
@@ -95,6 +121,17 @@ int main(int argc, char *argv[])
             // 现在，draw_text 只打印 0.0
             // 请你改写下面draw_text的参数，把解得的 tvec 和 rvec 打印出来
             //
+<<<<<<< Updated upstream
+=======
+
+            tools::draw_text(img, fmt::format("tvec:  x{: .2f} y{: .2f} z{: .2f}",
+                tvec.at<double>(0), tvec.at<double>(1), tvec.at<double>(2)),
+                cv::Point(10, 60), cv::Scalar(0, 255, 255), 1.7, 3);
+            tools::draw_text(img, fmt::format("rvec:  x{: .2f} y{: .2f} z{: .2f}",
+                rvec.at<double>(0), rvec.at<double>(1), rvec.at<double>(2)),
+                cv::Point(10, 120), cv::Scalar(0, 255, 255), 1.7, 3);
+                
+>>>>>>> Stashed changes
             tools::draw_text(img, fmt::format("tvec:  x{: .2f} y{: .2f} z{: .2f}", 0.0, 0.0, 0.0), cv::Point(10, 60), cv::Scalar(0, 255, 255), 1.7, 3);
             tools::draw_text(img, fmt::format("rvec:  x{: .2f} y{: .2f} z{: .2f}", 0.0, 0.0, 0.0), cv::Point(10, 120), cv::Scalar(0, 255, 255), 1.7, 3);
             //
