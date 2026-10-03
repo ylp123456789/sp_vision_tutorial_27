@@ -43,7 +43,7 @@ int main()
             for (int i = 0; i < 4; i++)
             {
                 int j = (i + 1) % 4;
-                cv::line(frame, armor.points[i], armor.points[j], cv::Scalar(255, 255, 0), 2);
+                cv::line(frame, armor.points[i], armor.points[j], cv::Scalar(0, 255, 0), 2);
             }
         
             std::string color_str = auto_aim::COLORS[armor.color];
@@ -56,7 +56,7 @@ int main()
                         cv::FONT_HERSHEY_SIMPLEX,
                         0.6,
                         cv::Scalar(0, 255, 0),
-                        10);
+                        3);
         }
 
 
