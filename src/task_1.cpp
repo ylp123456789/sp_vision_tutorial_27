@@ -28,6 +28,8 @@ int main(int argc, char * argv[])
     return 0;
   }
 
+  cv::namedWindow("camera_view", cv::WINDOW_NORMAL);
+
   // 初始化工具类
   tools::Exiter exiter;
   tools::Plotter plotter;   // 注意plotter工具的使用
@@ -52,12 +54,21 @@ int main(int argc, char * argv[])
     // Your code start
 
     camera.read(img, t);
+    cv::flip(img, img, 0);
 
     q = gimbal.q(t);
 
     solver.set_R_gimbal2world(q);
 
     std::list<auto_aim::Armor> armor_list = yolo.detect(img);
+
+    cv::imshow("camera_view", img);
+    int key = cv::waitKey(1);
+    if (key == 'q')
+    {
+      exiter.exit();
+      break;
+    }
 
     double target_yaw = last_target_yaw;
     double target_pitch = last_target_pitch;
@@ -69,7 +80,7 @@ int main(int argc, char * argv[])
       solver.solve(armor);
 
       target_yaw = armor.ypd_in_world[0];
-      target_pitch = armor.ypd_in_world[1];
+      target_pitch = -armor.ypd_in_world[1];
 
       const double pitch_max = 20.0 * CV_PI / 180.0;
       const double pitch_min = -20.0 * CV_PI / 180.0;
@@ -92,6 +103,6 @@ int main(int argc, char * argv[])
 
     // Your code end
   }
-
+  cv::destroyAllWindows();
   return 0;
 }
