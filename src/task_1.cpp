@@ -54,7 +54,6 @@ int main(int argc, char * argv[])
     // Your code start
 
     camera.read(img, t);
-    cv::flip(img, img, 0);
 
     q = gimbal.q(t);
 
