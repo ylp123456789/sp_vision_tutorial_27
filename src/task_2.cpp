@@ -21,15 +21,17 @@ const std::string keys =
 
 using namespace std::chrono_literals;
 
-constexpr double FIRE_INTERVAL_S = 0.2;
-constexpr int    MAX_FIRE_COUNT  = 10;    
-constexpr double AIM_YAW_TOL     = 0.02;   
-constexpr double AIM_PITCH_TOL   = 0.02;
-constexpr double PITCH_MAX       =  20.0 * CV_PI / 180.0;
-constexpr double PITCH_MIN       = -20.0 * CV_PI / 180.0;
+// ==================== 任务参数与限制 ====================
+constexpr double FIRE_INTERVAL_S = 0.2;// 开火间隔：0.2秒(即5Hz弹频)
+constexpr int    MAX_FIRE_COUNT  = 10;// 每个转速档位最多打10发    
+constexpr double AIM_YAW_TOL     = 0.02;// 瞄准偏航角容差   
+constexpr double AIM_PITCH_TOL   = 0.02;// 瞄准俯仰角容差
+constexpr double PITCH_MAX       =  20.0 * CV_PI / 180.0;// 云台俯仰角上限
+constexpr double PITCH_MIN       = -20.0 * CV_PI / 180.0;// 云台俯仰角下限
 
 int main(int argc, char * argv[])
 {
+  // 解析命令行参数
   cv::CommandLineParser cli(argc, argv, keys);
   auto config_path = cli.get<std::string>("@config-path");
   if (cli.has("help") || !cli.has("@config-path")) {
@@ -37,6 +39,7 @@ int main(int argc, char * argv[])
     return 0;
   }
 
+  // 创建OpenCV图像显示窗口
   cv::namedWindow("camera_view", cv::WINDOW_NORMAL);
 
   // 初始化工具类
@@ -55,11 +58,14 @@ int main(int argc, char * argv[])
   Eigen::Quaterniond q;
   std::chrono::steady_clock::time_point t;
 
+  // 使用 std::optional，因为刚开机时没有目标，不能强行构造 Target 对象
   std::optional<auto_aim::Target> target;
 
+  // 开火状态管理
   int fire_count = 0;
   auto last_fire_time = std::chrono::steady_clock::now() - 1s;
 
+  // 云台指令平滑管理 (防止云台因目标框抖动而剧烈晃动)
   bool   first_aim   = true;
   double smooth_yaw   = 0.0;
   double smooth_pitch = 0.0;
@@ -68,6 +74,8 @@ int main(int argc, char * argv[])
 
   while (!exiter.exit()) {
     // Your code start
+
+    // 图像感知与状态读取
     camera.read(img, t);
     q = gimbal.q(t);
     solver.set_R_gimbal2world(q);
@@ -79,6 +87,7 @@ int main(int argc, char * argv[])
       if (!selected || armor.priority < selected->priority) selected = armor;
     }
 
+    //EKF 目标跟踪与更新
     if (selected) {
       solver.solve(*selected);
       if (!target) {
@@ -92,6 +101,7 @@ int main(int argc, char * argv[])
       target->predict(t);  
     }
 
+    //弹道解算与开火判断
     auto gimbal_state = gimbal.state();
 
     double cmd_yaw   = smooth_yaw;
@@ -145,6 +155,7 @@ int main(int argc, char * argv[])
       }
     }
 
+    //云台平滑控制与下发
     if (valid_target) {
       if (first_aim) {
         smooth_yaw   = cmd_yaw;
@@ -162,6 +173,7 @@ int main(int argc, char * argv[])
       gimbal.send(false, false, 0.0f, 0.0f);
     }
 
+    //可视化与数据输出
     cv::imshow("camera_view", img);
     int key = cv::waitKey(1);
     if (key == 'q') { exiter.exit(); break; }
