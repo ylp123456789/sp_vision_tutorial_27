@@ -21,11 +21,11 @@ const std::string keys =
 
 using namespace std::chrono_literals;
 
-// ==================== 任务参数与限制 ====================
+// 任务参数与限制
 constexpr double FIRE_INTERVAL_S = 0.2;// 开火间隔：0.2秒(即5Hz弹频)
 constexpr int    MAX_FIRE_COUNT  = 10;// 每个转速档位最多打10发    
-constexpr double AIM_YAW_TOL     = 0.02;// 瞄准偏航角容差   
-constexpr double AIM_PITCH_TOL   = 0.02;// 瞄准俯仰角容差
+constexpr double AIM_YAW_TOL     = 0.03;// 瞄准偏航角容差   
+constexpr double AIM_PITCH_TOL   = 0.03;// 瞄准俯仰角容差
 constexpr double PITCH_MAX       =  20.0 * CV_PI / 180.0;// 云台俯仰角上限
 constexpr double PITCH_MIN       = -20.0 * CV_PI / 180.0;// 云台俯仰角下限
 
@@ -64,13 +64,9 @@ int main(int argc, char * argv[])
   // 开火状态管理
   int fire_count = 0;
   auto last_fire_time = std::chrono::steady_clock::now() - 1s;
-
-  // 云台指令平滑管理 (防止云台因目标框抖动而剧烈晃动)
-  bool   first_aim   = true;
-  double smooth_yaw   = 0.0;
-  double smooth_pitch = 0.0;
-
   int frame_count = 0;
+
+  constexpr int TARGET_ARMOR_NUM = 4;
 
   while (!exiter.exit()) {
     // Your code start
@@ -91,7 +87,6 @@ int main(int argc, char * argv[])
     if (selected) {
       solver.solve(*selected);
       if (!target) {
-        
         target.emplace(*selected, t);
       } else {
         target->predict(t);
@@ -104,8 +99,8 @@ int main(int argc, char * argv[])
     //弹道解算与开火判断
     auto gimbal_state = gimbal.state();
 
-    double cmd_yaw   = smooth_yaw;
-    double cmd_pitch = smooth_pitch;
+    double cmd_yaw   = 0.0;
+    double cmd_pitch = 0.0;
     double ekf_w     = 0.0;
     double ekf_angle = 0.0;
     bool   valid_target = false;
@@ -115,25 +110,45 @@ int main(int argc, char * argv[])
       const auto & x = target->ekf_x();
       ekf_w     = x[7];   
       ekf_angle = x[6];
-      
-    double bullet_speed = gimbal_state.bullet_speed;
-    if (bullet_speed < 1.0) bullet_speed = 25.0;
+    
+      //弹丸飞行时间 & 预测瞄准点
+      double bullet_speed = gimbal_state.bullet_speed;
+      if (bullet_speed < 1.0) bullet_speed = 25.0;
 
-    double t_flight = 0.1;
+      double t_flight = 0.1;
       double pred_x = 0, pred_y = 0, pred_z = 0;
       for (int iter = 0; iter < 3; ++iter) {
         double cx = x[0] + x[1] * t_flight;   
         double cy = x[2] + x[3] * t_flight;   
         double cz = x[4] + x[5] * t_flight;   
-        double ang = tools::limit_rad(x[6] + x[7] * t_flight);
-        double r = x[8];
-        pred_x = cx - r * std::cos(ang);
-        pred_y = cy - r * std::sin(ang);
-        pred_z = cz;
+        double a_base = tools::limit_rad(x[6] + x[7] * t_flight);
+        double center_yaw = std::atan2(cy, cx);
+        //寻找 t_flight 后最正对云台的装甲板 ID
+        int best_id = 0;
+        double min_angle_err = 1e10;
+        for (int i = 0; i < TARGET_ARMOR_NUM; ++i) {
+          double a_i = tools::limit_rad(a_base + i * 2 * CV_PI / TARGET_ARMOR_NUM);
+          double angle_err = std::abs(tools::limit_rad(a_i - (center_yaw + CV_PI)));
+          if (angle_err < min_angle_err) {
+            min_angle_err = angle_err;
+            best_id = i;
+          }
+        }
+
+        bool use_l_h = (TARGET_ARMOR_NUM == 4) && (best_id == 1 || best_id == 3);
+        double r  = use_l_h ? (x[8] + x[9]) : x[8];
+        double dh = use_l_h ? x[10] : 0.0;
+
+        double a_best = tools::limit_rad(a_base + best_id * 2 * CV_PI / TARGET_ARMOR_NUM);
+
+        pred_x = cx - r * std::cos(a_best);
+        pred_y = cy - r * std::sin(a_best);
+        pred_z = cz + dh;
+
         double dist = std::sqrt(pred_x*pred_x + pred_y*pred_y + pred_z*pred_z);
         t_flight = dist / bullet_speed;
       }
-
+      //计算云台偏航与俯仰角
       double dist_xy = std::sqrt(pred_x*pred_x + pred_y*pred_y);
       cmd_yaw   = std::atan2(pred_y, pred_x);
       cmd_pitch = -std::atan2(pred_z, dist_xy);
@@ -155,20 +170,9 @@ int main(int argc, char * argv[])
       }
     }
 
-    //云台平滑控制与下发
+    
     if (valid_target) {
-      if (first_aim) {
-        smooth_yaw   = cmd_yaw;
-        smooth_pitch = cmd_pitch;
-        first_aim = false;
-      } else {
-        double dyaw = tools::limit_rad(cmd_yaw - smooth_yaw);
-        smooth_yaw   = tools::limit_rad(smooth_yaw + dyaw * 0.5);
-        smooth_pitch = smooth_pitch + (cmd_pitch - smooth_pitch) * 0.5;
-      }
-      gimbal.send(true, fire,
-                  static_cast<float>(smooth_yaw),
-                  static_cast<float>(smooth_pitch));
+      gimbal.send(true, fire, static_cast<float>(cmd_yaw), static_cast<float>(cmd_pitch));
     } else {
       gimbal.send(false, false, 0.0f, 0.0f);
     }
@@ -188,6 +192,13 @@ int main(int argc, char * argv[])
     j["bullet_count"]        = gimbal_state.bullet_count;
     j["fire_count"]          = fire_count;
     j["fire"]                = fire ? 1 : 0;
+
+    if (target) {
+      auto x = target->ekf_x();
+      j["r"] = x[8];
+      j["l"] = x[9];
+      j["h"] = x[10];
+    }
     plotter.plot(j);
 
     // Your code end
