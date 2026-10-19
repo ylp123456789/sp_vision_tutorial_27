@@ -14,6 +14,7 @@
 #include "tools/logger.hpp"
 #include "tools/math_tools.hpp"
 #include "tools/plotter.hpp"
+#include "tools/trajectory.hpp"
 
 const std::string keys =
   "{help h usage ? | | 输出命令行参数说明}"
@@ -24,8 +25,8 @@ using namespace std::chrono_literals;
 // 任务参数与限制
 constexpr double FIRE_INTERVAL_S = 0.2;// 开火间隔：0.2秒(即5Hz弹频)
 constexpr int    MAX_FIRE_COUNT  = 10;// 每个转速档位最多打10发    
-constexpr double AIM_YAW_TOL     = 0.03;// 瞄准偏航角容差   
-constexpr double AIM_PITCH_TOL   = 0.03;// 瞄准俯仰角容差
+constexpr double AIM_YAW_TOL     = 0.06;// 瞄准偏航角容差   
+constexpr double AIM_PITCH_TOL   = 0.15;// 瞄准俯仰角容差
 constexpr double PITCH_MAX       =  20.0 * CV_PI / 180.0;// 云台俯仰角上限
 constexpr double PITCH_MIN       = -20.0 * CV_PI / 180.0;// 云台俯仰角下限
 
@@ -105,6 +106,9 @@ int main(int argc, char * argv[])
     double ekf_angle = 0.0;
     bool   valid_target = false;
     bool   fire = false;
+    double yaw_err   = 1e10;
+    double pitch_err = 1e10;
+    bool   aim_ready = false;
 
     if (target && target->isinit && target->is_converged()) {
       const auto & x = target->ekf_x();
@@ -117,9 +121,12 @@ int main(int argc, char * argv[])
 
       double t_flight = 0.1;
       double pred_x = 0, pred_y = 0, pred_z = 0;
+
+      double L_x = 0.171; 
+      double L_y = 0.0;
       for (int iter = 0; iter < 3; ++iter) {
-        double cx = x[0] + x[1] * t_flight;   
-        double cy = x[2] + x[3] * t_flight;   
+        double cx = x[0] + x[1] * t_flight;
+        double cy = x[2] + x[3] * t_flight;
         double cz = x[4] + x[5] * t_flight;   
         double a_base = tools::limit_rad(x[6] + x[7] * t_flight);
         double center_yaw = std::atan2(cy, cx);
@@ -145,25 +152,33 @@ int main(int argc, char * argv[])
         pred_y = cy - r * std::sin(a_best);
         pred_z = cz + dh;
 
-        double dist = std::sqrt(pred_x*pred_x + pred_y*pred_y + pred_z*pred_z);
-        t_flight = dist / bullet_speed;
+        double d_center = std::sqrt(pred_x*pred_x + pred_y*pred_y);
+        double h_center = pred_z;
+
+        double final_pitch_positive_up = 0.0; 
+        double final_fly_time = 0.0;
+
+        if (tools::solve_actual_trajectory(bullet_speed, d_center, h_center, 3, L_x, L_y, final_pitch_positive_up, final_fly_time)) {
+          t_flight = final_fly_time;
+          cmd_pitch = -final_pitch_positive_up; 
+        } else {
+          cmd_pitch = -std::atan2(h_center, d_center);
+          t_flight = d_center / bullet_speed;
+        }
       }
-      //计算云台偏航与俯仰角
-      double dist_xy = std::sqrt(pred_x*pred_x + pred_y*pred_y);
-      cmd_yaw   = std::atan2(pred_y, pred_x);
-      cmd_pitch = -std::atan2(pred_z, dist_xy);
+      cmd_yaw = std::atan2(pred_y, pred_x);
       cmd_pitch = tools::limit_min_max(cmd_pitch, PITCH_MIN, PITCH_MAX);
 
       valid_target = true;
 
-      double yaw_err   = std::abs(tools::limit_rad(cmd_yaw - gimbal_state.yaw));
-      double pitch_err = std::abs(cmd_pitch - gimbal_state.pitch);
-      bool aim_ready = (yaw_err < AIM_YAW_TOL && pitch_err < AIM_PITCH_TOL);
+      yaw_err   = std::abs(tools::limit_rad(cmd_yaw - gimbal_state.yaw));
+      pitch_err = std::abs(cmd_pitch - gimbal_state.pitch);
+      aim_ready = (yaw_err < AIM_YAW_TOL && pitch_err < AIM_PITCH_TOL);
 
       auto now = std::chrono::steady_clock::now();
       double dt_since_fire = std::chrono::duration<double>(now - last_fire_time).count();
 
-      if (aim_ready && fire_count < MAX_FIRE_COUNT && dt_since_fire >= FIRE_INTERVAL_S) {
+      if (aim_ready && dt_since_fire >= FIRE_INTERVAL_S) {
         fire = true;
         fire_count++;
         last_fire_time = now;
@@ -171,7 +186,7 @@ int main(int argc, char * argv[])
     }
 
     
-    if (valid_target) {
+    if (valid_target) { 
       gimbal.send(true, fire, static_cast<float>(cmd_yaw), static_cast<float>(cmd_pitch));
     } else {
       gimbal.send(false, false, 0.0f, 0.0f);
@@ -192,6 +207,13 @@ int main(int argc, char * argv[])
     j["bullet_count"]        = gimbal_state.bullet_count;
     j["fire_count"]          = fire_count;
     j["fire"]                = fire ? 1 : 0;
+
+    j["yaw_err"]             = yaw_err;
+    j["pitch_err"]           = pitch_err;
+    j["aim_ready"]           = aim_ready ? 1 : 0;
+
+    j["bullet_speed"]        = gimbal_state.bullet_speed;
+    j["bullet_count"]        = gimbal_state.bullet_count;
 
     if (target) {
       auto x = target->ekf_x();
