@@ -117,7 +117,7 @@ int main(int argc, char * argv[])
     
       //弹丸飞行时间 & 预测瞄准点
       double bullet_speed = gimbal_state.bullet_speed;
-      if (bullet_speed < 1.0) bullet_speed = 25.0;
+      if (bullet_speed < 1.0) bullet_speed = 23.0;
 
       double t_flight = 0.1;
       double pred_x = 0, pred_y = 0, pred_z = 0;
@@ -189,7 +189,7 @@ int main(int argc, char * argv[])
     if (valid_target) { 
       gimbal.send(true, fire, static_cast<float>(cmd_yaw), static_cast<float>(cmd_pitch));
     } else {
-      gimbal.send(false, false, 0.0f, 0.0f);
+      gimbal.send(false, false, static_cast<float>(gimbal_state.yaw), static_cast<float>(gimbal_state.pitch));
     }
 
     //可视化与数据输出

@@ -41,8 +41,8 @@ Target::Target(
   // h: dh2 for outpost / z2 - z1 for vehicles
   Eigen::VectorXd x0{{center_x, 0, center_y, 0, center_z, 0, ypr[0], 0, r, 0, 0}};  //初始化预测量
   Eigen::VectorXd P0_dig_car{
-    {1, 64, 1, 64, 1, 64, 0.4, 100, 0.01, 0.005,
-     0.005}};  // Task_2 TODO: 根据实际情况，调整“后三项”预测量协方差矩阵参数
+    {1, 64, 1, 64, 1, 64, 0.4, 100, 0.001, 0.001,
+     0.01}};  // Task_2 TODO: 根据实际情况，调整“后三项”预测量协方差矩阵参数
 
   // Task_3 TODO: 为前哨站建立专有的初始状预测量及其协方差矩阵参数（P0_dig_outpost）
 
@@ -89,9 +89,9 @@ void Target::predict(double dt)
   double v1, v2;
 
   // Task_2 TODO: 根据实际情况，调整v1与v2
-  v1 = 1;           // 加速度方差
-  v2 = 1000;           // 角加速度方差
-  double v1_z = 1;  // z轴加速度方差
+  v1 = 0.001;           // 加速度方差
+  v2 = 500;           // 角加速度方差
+  double v1_z =1;  // z轴加速度方差
 
   auto a = dt * dt * dt * dt / 4;
   auto b = dt * dt * dt / 2;
@@ -193,8 +193,8 @@ void Target::update_ypda(const Armor & armor, int id)
 
   const double r_cam_yaw = 5e-4;
   const double r_cam_pitch = 5e-4;
-  const double r_distance = (1e-2 + 5e-3 * distance_sq) * (std::log(std::abs(delta_angle) + 1) + 1);
-  const double r_armor_yaw = 5e-2 + 1e-2 * distance_sq + 2e-1 / distance;
+  const double r_distance = (1e-2 + 0.2 * distance_sq) * (std::log(std::abs(delta_angle) + 1) + 1);
+  const double r_armor_yaw = 0.1 + 1e-2 * distance_sq + 2e-1 / distance;
 
   Eigen::MatrixXd R = Eigen::Vector4d(r_cam_yaw, r_cam_pitch, r_distance, r_armor_yaw).asDiagonal();
 
