@@ -41,8 +41,8 @@ Target::Target(
   // h: dh2 for outpost / z2 - z1 for vehicles
   Eigen::VectorXd x0{{center_x, 0, center_y, 0, center_z, 0, ypr[0], 0, r, 0, 0}};  //初始化预测量
   Eigen::VectorXd P0_dig_car{
-    {1, 64, 1, 64, 1, 64, 0.4, 100, 0.001, 0.001,
-     0.01}};  // Task_2 TODO: 根据实际情况，调整“后三项”预测量协方差矩阵参数
+    {1, 64, 1, 64, 1, 64, 0.4, 100, 0.01, 0.01,
+     0.001}};  // Task_2 TODO: 根据实际情况，调整“后三项”预测量协方差矩阵参数
 
   // Task_3 TODO: 为前哨站建立专有的初始状预测量及其协方差矩阵参数（P0_dig_outpost）
 
@@ -89,8 +89,8 @@ void Target::predict(double dt)
   double v1, v2;
 
   // Task_2 TODO: 根据实际情况，调整v1与v2
-  v1 = 0.001;           // 加速度方差
-  v2 = 500;           // 角加速度方差
+  v1 = 0.1;           // 加速度方差
+  v2 = 100;           // 角加速度方差
   double v1_z =1;  // z轴加速度方差
 
   auto a = dt * dt * dt * dt / 4;
@@ -193,8 +193,8 @@ void Target::update_ypda(const Armor & armor, int id)
 
   const double r_cam_yaw = 5e-4;
   const double r_cam_pitch = 5e-4;
-  const double r_distance = (1e-2 + 0.2 * distance_sq) * (std::log(std::abs(delta_angle) + 1) + 1);
-  const double r_armor_yaw = 0.1 + 1e-2 * distance_sq + 2e-1 / distance;
+  const double r_distance = (1e-2 + 5e-3 * distance_sq) * (std::log(std::abs(delta_angle) + 1) + 1);
+  const double r_armor_yaw = 5e-2 + 1e-2 * distance_sq + 2e-1 / distance;
 
   Eigen::MatrixXd R = Eigen::Vector4d(r_cam_yaw, r_cam_pitch, r_distance, r_armor_yaw).asDiagonal();
 
@@ -218,8 +218,15 @@ void Target::update_ypda(const Armor & armor, int id)
   const Eigen::VectorXd & ypd = armor.ypd_in_world;
   const Eigen::VectorXd & ypr = armor.ypr_in_world;
   Eigen::VectorXd z{{ypd[0], ypd[1], ypd[2], ypr[0]}};  //获得观测量
+  double w_before = ekf_.x[7];
 
   ekf_.update(z, H, R, h, z_subtract);
+  double delta_w = ekf_.x[7] - w_before;
+  if (std::abs(delta_w) > 0.15) { // 0.15 是比较平滑的阈值
+    ekf_.x[7] = w_before + (delta_w > 0 ? 0.15 : -0.15);
+  }
+  ekf_.P(6, 7) = 0.0;
+  ekf_.P(7, 6) = 0.0;
 }
 
 Eigen::VectorXd Target::ekf_x() const { return ekf_.x; }
@@ -275,10 +282,11 @@ Eigen::Vector3d Target::h_armor_xyz(const Eigen::VectorXd & x, int id) const
   auto armor_x = x[0] - r * std::cos(angle);
   auto armor_y = x[2] - r * std::sin(angle);
 
-  double dh = 0.0;  // 高度差
+  auto armor_z = (use_l_h) ? x[4] + x[10] : x[4];
+  //double dh = 0.0;  // 高度差
   // Task_3 TODO: 为前哨站建立专有的高度差计算方法
 
-  auto armor_z = x[4] + dh;  //task_3 tips
+  //auto armor_z = x[4] + dh;  //task_3 tips
 
   return {armor_x, armor_y, armor_z};
 }
@@ -327,5 +335,5 @@ Eigen::MatrixXd Target::h_jacobian(const Eigen::VectorXd & x, int id) const
 }
 
 bool Target::checkinit() { return isinit; }
-
+bool Target::is_switch() const { return is_switch_; }
 }  // namespace auto_aim

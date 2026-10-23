@@ -41,6 +41,7 @@ public:
   void update_convergency();
   bool is_converged() const;
   bool convergened(); 
+  bool is_switch() const;
 
   bool isinit = false;
 
